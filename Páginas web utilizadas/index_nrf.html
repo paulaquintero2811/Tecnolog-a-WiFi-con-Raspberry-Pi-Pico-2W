@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control NRF24L01 - UMNG</title>
+<style>
+:root{font-family:system-ui,Arial,sans-serif;color:#202124;background:#f4f6f8}*{box-sizing:border-box}body{margin:0}header{background:#198754;color:white;padding:18px;text-align:center}main{max-width:850px;margin:20px auto;padding:0 14px}.card{background:white;border:1px solid #ddd;border-radius:14px;padding:18px;margin-bottom:16px}h1{font-size:1.35rem;margin:0}h2{font-size:1.1rem;margin-top:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}label{display:block;font-weight:650;margin-bottom:5px}select{width:100%;padding:11px;border:1px solid #bbb;border-radius:8px;background:white;font-size:1rem}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:9px;padding:12px 16px;font-weight:700;font-size:1rem;cursor:pointer;background:#198754;color:white}button.secondary{background:#455a64}button:disabled{opacity:.55}.status{background:#eef4f0;padding:12px;border-radius:8px;overflow-wrap:anywhere}.small{color:#5f6368;font-size:.92rem}.msg{white-space:pre-wrap;overflow-wrap:anywhere}.error{color:#b42318}footer{text-align:center;color:#666;padding:20px}
+</style></head><body>
+<header><h1>Comunicaciones Digitales · Control NRF24L01</h1></header>
+<main>
+<section class="card"><h2>Estado del dispositivo</h2><div id="state" class="status">Conectando con la Raspberry Pi Pico…</div><p id="lastmsg" class="msg">Último mensaje recibido: —</p><p class="small">Esta página controla el NRF24L01 conectado a la Raspberry Pi que aloja esta página.</p></section>
+<section class="card"><h2>Configuración de radio</h2><div class="grid">
+<div><label for="channel">Canal RF (0–125)</label><select id="channel"></select></div>
+<div><label for="rate">Velocidad de datos</label><select id="rate"><option>250K</option><option>1 Mbps</option><option>2 Mbps</option></select></div>
+<div><label for="power">Potencia</label><select id="power"><option>-18 dBm</option><option>-12 dBm</option><option>-6 dBm</option><option>0 dBm</option></select></div>
+<div><label for="mode">Modo</label><select id="mode"><option>TX</option><option>RX</option></select></div>
+<div><label for="message">Mensaje</label><select id="message"><option>EDIEM VALERO</option><option>PAULA QUINTERO</option><option>ALFABETO</option><option>ALFABETO NUMERICO</option></select></div>
+<div><label for="sending">Tipo de envío</label><select id="sending"><option>UNICO</option><option>LOOP</option></select></div>
+</div><div class="actions"><button id="apply">Aplicar configuración</button><button id="send" class="secondary">Enviar un mensaje ahora</button><button id="refresh" class="secondary">Actualizar estado</button></div><p id="feedback" aria-live="polite" class="small">Configura este Pico y configura el otro con los mismos canal y velocidad para que puedan comunicarse.</p></section>
+<section class="card"><h2>Importante para usar dos redes WiFi distintas</h2><p>Abre la página de cada Raspberry desde un dispositivo conectado a su respectiva red WiFi. Configura ambos NRF24L01 con el mismo canal y velocidad; selecciona TX en uno y RX en el otro. La potencia puede ser diferente, aunque para una prueba controlada conviene usar el mismo valor.</p><p class="small">Como el WiFi de las dos Raspberry está en redes diferentes, esta página no modifica automáticamente el segundo Pico: debes aplicar la configuración en la página alojada por cada uno.</p></section>
+</main><footer>Ingeniería en Telecomunicaciones · UMNG</footer>
+<script>
+const $=id=>document.getElementById(id);for(let i=0;i<=125;i++){const o=document.createElement('option');o.value=i;o.textContent=i+' ('+(2400+i)+' MHz)';$('channel').appendChild(o)}
+async function api(path,method='GET',data=null){const opts={method,cache:'no-store',headers:{'Accept':'application/json'}};if(data!==null){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}const r=await fetch(path,opts);const j=await r.json();if(!r.ok||j.ok===false)throw new Error(j.error||('HTTP '+r.status));return j}
+function formConfig(){return {channel:Number($('channel').value),rate:$('rate').value,power:$('power').value,mode:$('mode').value,message:$('message').value,sending:$('sending').value}}
+function fill(c){$('channel').value=c.channel;$('rate').value=c.rate;$('power').value=c.power;$('mode').value=c.mode;$('message').value=c.message;$('sending').value=c.sending}
+function show(s){$('state').textContent='IP: '+s.ip+' | Modo: '+s.config.mode+' | Canal: '+s.config.channel+' ('+(2400+s.config.channel)+' MHz) | Velocidad: '+s.config.rate+' | Potencia: '+s.config.power+' | Envío: '+s.config.sending+' | Estado: '+s.last_event;$('lastmsg').textContent='Último mensaje recibido: '+(s.last_message||'—');}
+async function refresh(){try{const s=await api('/api/state');show(s);if(!refresh.loaded){fill(s.config);refresh.loaded=true}}catch(e){$('state').textContent='No se pudo consultar la Pico: '+e.message;$('state').classList.add('error')}}
+$('apply').addEventListener('click',async()=>{ $('apply').disabled=true;$('feedback').textContent='Aplicando configuración…';try{const s=await api('/api/config','POST',formConfig());show(s);$('feedback').textContent='Configuración aplicada en esta Raspberry Pi.'}catch(e){$('feedback').textContent='Error: '+e.message;$('feedback').classList.add('error')}finally{$('apply').disabled=false}});
+$('send').addEventListener('click',async()=>{try{const s=await api('/api/send','POST',{});show(s);$('feedback').textContent='Orden de transmisión ejecutada. Con Auto-ACK desactivado, esto no confirma recepción en el otro módulo.'}catch(e){$('feedback').textContent='Error: '+e.message}});
+$('refresh').addEventListener('click',refresh);refresh();setInterval(refresh,3000);
+</script></body></html>
